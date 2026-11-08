@@ -83,6 +83,19 @@ pip install fastapi uvicorn httpx python-dotenv python-multipart
 
 market/books 为静态快照 JSON、points 落库、replicate 不留存。
 
+### 6. 账号诊断（`/api/diagnose/*`）
+
+把你导出的内容数据贴进来或传 CSV，算出四项指标、周内走势和能直接执行的建议。
+
+- 输入：`标题` `平台` `阅读` 必填，`发布时间` `点赞` `转发` `评论` `粉丝数` 可选；
+  表头接受常见同义写法（`阅读量` / `播放` / `views` …），缺必需列直接报错并回显读到的表头
+- 两个入口都是真接口：粘贴（Tab 或逗号分隔）发 JSON，选文件走 multipart；
+  CSV 按 UTF-8 / GBK 解码，Excel 明确拒绝并提示「请另存为 CSV」
+- 互动率复用 `calc_rate()`；算不出来的指标返回 `null`，界面显示「—」，不填 0、不填示例值
+- 建议先走纯规则（异常点 > 互动率 > 更新频率 > 质量分 > 稳定性，最多 3 条），
+  配了 `ZHIPU_API_KEY` 才额外让模型写一句总评（`prompts/diagnose.md`）；模型失败不影响诊断结果，`note` 为 `null`
+- 每次导入落一行 `diagnose_runs`，`payload` 里同时存原始行和算完的结果，回看时每个数字都能追回具体哪一行
+
 ---
 
 ## 目录
@@ -93,14 +106,14 @@ config.py         配置与常量（端口、模型链、库路径、UA）
 db.py             建表 / 迁移 / 短连接 / 连续天数
 llm.py            模型调用（重试、回退、JSON 模式）
 collectors/       微博 知乎 百度 头条 四个采集器
-prompts/          article / note / script / cards / review 五套 prompt
+prompts/          article / note / script / cards / review / diagnose 六套 prompt
 static/index.html 前端单体（无框架，var S + render() 重绘）
 static/render/card.html  Canvas 卡片渲染器
 data/creator.db   SQLite（已 gitignore）
 
-九张表：topics（热点历史）/ contents（生成结果）/ posts（发布记录）/ settings（状态与积分余额）/
+十张表：topics（热点历史）/ contents（生成结果）/ posts（发布记录）/ settings（状态与积分余额）/
 reviews（复盘）/ templates（预留）/ theses（母题库）/ thesis_cards（观点卡）/
-point_records（积分流水）
+point_records（积分流水）/ diagnose_runs（账号诊断的导入批次与结果）
 ```
 
 ---
@@ -117,6 +130,7 @@ point_records（积分流水）
 5. **无鉴权，只监听 127.0.0.1**。不要改成 `0.0.0.0` 挂公网，`/api/settings` 虽然过滤了密钥类键名，
    但整站没有登录，谁都能调。
 6. **SQLite 短连接，不适合并发**。单人单机没问题，多标签页同时写有极小概率 `database is locked`。
-7. **market / books / points / replicate 已接真实数据**：AI 超市、AI 书架、积分查看、爆款贴图复刻
+7. **market / books / points / replicate / diagnose 已接真实数据**：AI 超市、AI 书架、积分查看、爆款贴图复刻
    分别走 `/api/market`、`/api/books`、`/api/points`、`/api/replicate`，不再读前端 MOCK 硬编码；
-   `account diagnose`（账号诊断）仍为二期，点导航会提示「该模块二期实现」。
+   账号诊断已上线，走手动导入（`/api/diagnose/import` + `/run`），不接任何平台接口——
+   公众号 / 小红书 / 抖音都没有面向个人开发者的开放数据接口，自动同步仍不做。

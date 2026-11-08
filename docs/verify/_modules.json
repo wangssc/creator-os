@@ -28,25 +28,25 @@
    "no": 5,
    "name": "GET /api/points 结构与记录字段",
    "result": "PASS",
-   "detail": "HTTP 200 balance=793（数值=True）delta=本周 -67 records=13 每条含 balance_after=True rules=3（非空=True）；record0={\"ts\": \"2026-11-08 20:59:06\", \"reason\": \"生成内容 · derive\", \"delta\": -10, \"balance_after\": 793}"
+   "detail": "HTTP 200 balance=671（数值=True）delta=本周 -189 records=27 每条含 balance_after=True rules=3（非空=True）；record0={\"ts\": \"2026-11-08 21:31:19\", \"reason\": \"生成内容 · derive\", \"delta\": -10, \"balance_after\": 671}"
   },
   {
    "no": 6,
    "name": "POST /api/points/adjust 前后对比 + sqlite 行数",
    "result": "PASS",
-   "detail": "POST /api/points/adjust HTTP 200 ok=True；前 balance=793 records=13 sqlite行数=13 → 后 balance=792 records=14 sqlite行数=14；期望 balance-1 / records+1 / sqlite+1；data={\"ts\": \"2026-11-08 20:59:07\", \"reason\": \"模块验收\", \"delta\": -1, \"balance_after\": 792}"
+   "detail": "POST /api/points/adjust HTTP 200 ok=True；前 balance=671 records=27 sqlite行数=27 → 后 balance=670 records=28 sqlite行数=28；期望 balance-1 / records+1 / sqlite+1；data={\"ts\": \"2026-11-08 21:31:19\", \"reason\": \"模块验收\", \"delta\": -1, \"balance_after\": 670}"
   },
   {
    "no": 7,
    "name": "POST /api/replicate multipart 与无落库表",
    "result": "PASS",
-   "detail": "POST /api/replicate（multipart 字段 files，1x1 PNG 70 字节）HTTP 200 ok=True；structure/layers/hooks/directions 非空=True file_count=1；note=\"结构报告为本地模板生成，未调用视觉模型；本次收到 1 个文件，各文件字节数：70 字节。\"；sqlite 表=['topics', 'sqlite_sequence', 'contents', 'posts', 'settings', 'reviews', 'templates', 'theses', 'thesis_cards', 'point_records']；replicate|upload|image 相关表=[]（期望 []）"
+   "detail": "POST /api/replicate（multipart 字段 files，1x1 PNG 70 字节）HTTP 200 ok=True；structure/layers/hooks/directions 非空=True file_count=1；note=\"结构报告为本地模板生成，未调用视觉模型；本次收到 1 个文件，各文件字节数：70 字节。\"；sqlite 表=['topics', 'sqlite_sequence', 'contents', 'posts', 'settings', 'reviews', 'templates', 'theses', 'thesis_cards', 'point_records', 'diagnose_runs']；replicate|upload|image 相关表=[]（期望 []）"
   },
   {
    "no": 8,
    "name": "index.html 无四模块 MOCK 表达式且 LATER_MODULES 解禁",
-   "result": "PASS",
-   "detail": "剥离注释后引用计数=0 命中=[]；MOCK 对象定义命中=0 命中=[]（定义命中=0 才 PASS）；LATER_MODULES 段=diagnose: \"账号诊断\"；残留 market/books/replicate 键=[]；diagnose 保留=True"
+   "result": "FAIL",
+   "detail": "剥离注释后引用计数=0 命中=[]；MOCK 对象定义命中=0 命中=[]（定义命中=0 才 PASS）；LATER_MODULES 段=；残留 market/books/replicate 键=[]；diagnose 保留=False"
   },
   {
    "no": 9,

@@ -104,6 +104,19 @@ CREATE TABLE IF NOT EXISTS point_records (
   balance_after INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_point_records_ts ON point_records(ts DESC);
+
+-- 账号诊断：一次导入 = 一行。payload 存这次导入的原始行 + 算完的结果，
+-- 所以回看时每个数字都能追回具体哪一行；score 在算不出质量分时留 NULL。
+CREATE TABLE IF NOT EXISTS diagnose_runs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts TEXT NOT NULL,
+  platform TEXT NOT NULL,
+  row_count INTEGER NOT NULL,
+  score INTEGER,
+  payload TEXT NOT NULL,
+  note TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_diagnose_runs_ts ON diagnose_runs(ts DESC);
 """
 
 

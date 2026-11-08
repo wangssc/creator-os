@@ -2347,7 +2347,20 @@ var S = {
   diagnose: {
     platform: "小红书",
     loading: false,
-    done: false
+    done: false,
+    // 真数据：runId 是这次导入在 diagnose_runs 里的 id，回看时用它取完整结果
+    runId: null,
+    metrics: [],
+    bars: [],
+    suggestions: [],
+    note: null,
+    anomalies: [],
+    error: "",
+    // 导入区：file 非空时走 multipart 上传（后端按 UTF-8/GBK 解码），否则发粘贴的文本
+    csv: "",
+    file: null,
+    filename: "",
+    info: null
   },
 
   review: {
@@ -2471,7 +2484,7 @@ function render() {
 
 /* 二期模块：点导航时提示，不进入页面（页面本身与导航结构完整保留） */
 var LATER_MODULES = {
-  diagnose: "账号诊断"
+  // 账号诊断（R-D01~R-D04）本期已上线，从这里移出；二期模块再往这里加
 };
 
 function go(page) {
@@ -4726,82 +4739,215 @@ function pageDiagnose() {
     })
     .join("");
 
+  var info = "";
+  if (S.diagnose.info) {
+    var inf = S.diagnose.info;
+    info =
+      "已读 " + inf.row_count + " 行" +
+      (inf.skipped ? "，跳过 " + inf.skipped + " 行（缺标题或缺阅读）" : "") +
+      "，诊断编号 #" + inf.run_id;
+  }
+
+  var err = "";
+  if (S.diagnose.error) {
+    err =
+      '<div class="panel" style="margin-top:12px">' +
+        '<div class="row-between">' +
+          '<div style="font-size:13px">导入失败：' + esc(S.diagnose.error) + "</div>" +
+          '<button class="btn btn-sm" onclick="diagRun()">重试</button>' +
+        "</div>" +
+      "</div>";
+  }
+
   var body = "";
   if (S.diagnose.loading) {
-    body = '<div class="panel" style="margin-top:18px"><div class="empty">正在抓取近 7 天数据并对比同类账号…</div></div>';
+    body = '<div class="panel" style="margin-top:18px"><div class="empty">正在读这批数据、算指标…</div></div>';
   } else if (S.diagnose.done) {
-    var metrics = MOCK.diagnose.metrics
+    // 算不出来的指标后端给 null / "—"，这里一律显示「—」，不补 0
+    var metrics = (S.diagnose.metrics || [])
       .map(function (m) {
+        var val = m.value === null || m.value === undefined || m.value === "" ? "—" : m.value;
+        var unit = val === "—" ? "" : "<small>" + esc(m.unit) + "</small>";
         return (
           '<div class="card kpi">' +
-            '<div class="kpi-label">' + m.label + "</div>" +
-            '<div class="kpi-value">' + m.value + "<small>" + m.unit + "</small></div>" +
-            '<div class="kpi-bar"><span style="width:' + m.pct + '%"></span></div>' +
+            '<div class="kpi-label">' + esc(m.label) + "</div>" +
+            '<div class="kpi-value">' + esc(val) + unit + "</div>" +
+            '<div class="kpi-bar"><span style="width:' + (Number(m.pct) || 0) + '%"></span></div>' +
           "</div>"
         );
       })
       .join("");
 
-    var bars = MOCK.diagnose.bars
-      .map(function (b) {
-        return (
-          '<div class="bar-col">' +
-            '<div class="bar' + (b.hot ? " hot" : "") + '" style="height:' + b.v + 'px"></div>' +
-            '<div class="bar-x">' + b.l + "</div>" +
-          "</div>"
-        );
-      })
-      .join("");
+    var barsArr = S.diagnose.bars || [];
+    var barsHtml = "";
+    var barsHint = "按周内中位数";
+    if (!barsArr.length) {
+      barsHtml = '<div class="empty">这次导入没带发布时间，看不出周内分布</div>';
+      barsHint = "缺发布时间";
+    } else {
+      barsHtml =
+        '<div class="bars">' +
+        barsArr
+          .map(function (b) {
+            var h = b.empty ? 2 : b.v;
+            return (
+              '<div class="bar-col">' +
+                '<div class="bar' + (b.hot ? " hot" : "") + '" style="height:' + h + "px" +
+                  (b.empty ? ";background:var(--border-soft)" : "") + '"></div>' +
+                '<div class="bar-x">' + esc(b.l) + "</div>" +
+              "</div>"
+            );
+          })
+          .join("") +
+        "</div>";
+      for (var bi = 0; bi < barsArr.length; bi++) {
+        if (barsArr[bi].hot) barsHint = barsArr[bi].l + " 峰值";
+      }
+    }
 
-    var suggests = MOCK.diagnose.suggestions
+    var suggests = (S.diagnose.suggestions || [])
       .map(function (s, i) {
         return '<div class="suggest"><span class="suggest-no">' + (i + 1) + "</span><span>" + esc(s) + "</span></div>";
       })
       .join("");
 
+    var anomalies = S.diagnose.anomalies || [];
+    var sugHint = (S.diagnose.suggestions || []).length + " 条" + (anomalies.length ? " · " + anomalies.length + " 个异常点" : "");
+
+    var note = S.diagnose.note
+      ? '<div class="panel" style="margin-top:16px">' +
+          '<div class="panel-head"><div class="panel-title">一句话总评</div><span class="panel-hint">模型基于上面这些数字</span></div>' +
+          '<div style="font-size:13px;line-height:1.8">' + esc(S.diagnose.note) + "</div>" +
+        "</div>"
+      : "";
+
     body =
       '<div class="grid-4" style="margin-top:18px">' + metrics + "</div>" +
       '<div class="grid-2" style="margin-top:16px">' +
         '<div class="panel">' +
-          '<div class="panel-head"><div class="panel-title">近 7 天阅读走势</div><span class="panel-hint">周五峰值</span></div>' +
-          '<div class="bars">' + bars + "</div>" +
+          '<div class="panel-head"><div class="panel-title">周内阅读分布</div><span class="panel-hint">' + esc(barsHint) + "</span></div>" +
+          barsHtml +
         "</div>" +
         '<div class="panel">' +
-          '<div class="panel-head"><div class="panel-title">优化建议</div><span class="panel-hint">3 条</span></div>' +
+          '<div class="panel-head"><div class="panel-title">优化建议</div><span class="panel-hint">' + esc(sugHint) + "</span></div>" +
           suggests +
         "</div>" +
-      "</div>";
+      "</div>" +
+      note;
   }
 
   return (
     '<h2 class="h1">账号诊断</h2>' +
-    '<p class="sub">看四项核心指标，给出能直接执行的改进建议</p>' +
+    '<p class="sub">把你导出的内容数据贴进来，看四项核心指标和能直接执行的改进建议</p>' +
     '<div class="panel">' +
       '<div class="row-between">' +
         '<div class="row">' + chips + "</div>" +
         '<button class="btn btn-primary" onclick="diagRun()" ' + (S.diagnose.loading ? "disabled" : "") + ">" + (S.diagnose.loading ? "诊断中…" : "开始诊断") + "</button>" +
       "</div>" +
+      '<div id="diagDrop" style="margin-top:14px;padding:14px;border:1px dashed var(--border);border-radius:8px;text-align:center;color:var(--muted-2);font-size:13px;cursor:pointer" ' +
+        'onclick="document.getElementById(\'diagFile\').click()" ' +
+        'ondragover="event.preventDefault()" ondrop="diagDrop(event)">' +
+        (S.diagnose.filename ? "已选择文件：" + esc(S.diagnose.filename) : "把 CSV 拖到这里，或点这里选择文件（Excel 请先另存为 CSV）") +
+      "</div>" +
+      '<input type="file" id="diagFile" accept=".csv,text/csv" style="display:none" onchange="diagPick(this)">' +
+      '<textarea class="textarea" id="diagCsv" style="min-height:120px;margin-top:12px" placeholder="也可以从 Excel 直接复制（含表头）粘贴到这里，Tab 或逗号分隔都能识别" oninput="diagText(this.value)">' + esc(S.diagnose.csv) + "</textarea>" +
+      '<div class="panel-hint" style="margin-top:8px">必需列：标题、平台、阅读；可选列：发布时间、点赞、转发、评论、粉丝数。算不出来的指标显示「—」，不会填 0。</div>' +
+      (info ? '<div class="panel-hint" style="margin-top:6px">' + esc(info) + "</div>" : "") +
     "</div>" +
+    err +
     body
   );
 }
 
-function diagPlatform(p) {
-  S.diagnose.platform = p;
-  S.diagnose.done = false;
+function diagPick(input) {
+  var f = input.files && input.files[0];
+  S.diagnose.file = f || null;
+  S.diagnose.filename = f ? f.name : "";
+  S.diagnose.csv = "";
+  S.diagnose.error = "";
   render();
 }
 
-function diagRun() {
+/* 手打/粘贴优先于之前选过的文件：谁最后动谁算数，避免「明明贴了却跑了旧文件」 */
+function diagText(v) {
+  S.diagnose.csv = v;
+  S.diagnose.file = null;
+  S.diagnose.filename = "";
+}
+
+function diagDrop(event) {
+  event.preventDefault();
+  var f = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+  if (!f) return;
+  S.diagnose.file = f;
+  S.diagnose.filename = f.name;
+  S.diagnose.csv = "";
+  S.diagnose.error = "";
+  render();
+}
+
+function diagPlatform(p) {
+  // 换平台等于换一批数据，上一次的结果必须一起清掉，否则会看着旧数字以为新平台跑完了
+  S.diagnose.platform = p;
+  S.diagnose.done = false;
+  S.diagnose.runId = null;
+  S.diagnose.metrics = [];
+  S.diagnose.bars = [];
+  S.diagnose.suggestions = [];
+  S.diagnose.note = null;
+  S.diagnose.anomalies = [];
+  S.diagnose.info = null;
+  S.diagnose.error = "";
+  render();
+}
+
+/* 导入：选了文件走 multipart（后端自己按 UTF-8/GBK 解码），否则发粘贴的文本 */
+async function diagImport() {
+  if (S.diagnose.file) {
+    var fd = new FormData();
+    fd.append("file", S.diagnose.file);
+    fd.append("platform", S.diagnose.platform);
+    var r = await fetch("/api/diagnose/import", { method: "POST", body: fd });
+    var j = await r.json();
+    if (!j.ok) throw new Error(j.error || "导入失败");
+    return j.data;
+  }
+  return await api("/api/diagnose/import", {
+    platform: S.diagnose.platform,
+    csv: S.diagnose.csv,
+    filename: S.diagnose.filename || ""
+  });
+}
+
+async function diagRun() {
   if (S.diagnose.loading) return;
+  if (!S.diagnose.file && !String(S.diagnose.csv || "").trim()) {
+    S.diagnose.error = "先粘贴表格内容，或选择一个 CSV 文件";
+    render();
+    return;
+  }
   S.diagnose.loading = true;
   S.diagnose.done = false;
+  S.diagnose.error = "";
   render();
-  setTimeout(function () {
-    S.diagnose.loading = false;
+  try {
+    var imp = await diagImport();
+    var res = await api("/api/diagnose/run", { run_id: imp.run_id });
+    S.diagnose.runId = imp.run_id;
+    S.diagnose.info = { run_id: imp.run_id, row_count: imp.row_count, skipped: imp.skipped };
+    S.diagnose.metrics = res.metrics || [];
+    S.diagnose.bars = res.bars || [];
+    S.diagnose.suggestions = res.suggestions || [];
+    S.diagnose.note = res.note || null;
+    S.diagnose.anomalies = res.anomalies || [];
     S.diagnose.done = true;
-    render();
-  }, 1200);
+  } catch (e) {
+    // 失败留在页面上，按钮还在，可以直接重试；不弹 toast 完就没了
+    S.diagnose.error = (e && e.message) || "诊断失败，请重试";
+    S.diagnose.done = false;
+  }
+  S.diagnose.loading = false;
+  render();
 }
 
 /* ============================================================

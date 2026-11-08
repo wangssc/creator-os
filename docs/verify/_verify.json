@@ -8,7 +8,7 @@
    "no": "V01",
    "name": "服务存活 /api/stats",
    "result": "PASS",
-   "detail": "http 200 week_generated=2"
+   "detail": "http 200 week_generated=6"
   },
   {
    "no": "V02",
@@ -20,7 +20,7 @@
    "no": "V03",
    "name": "体检硬痕迹检出 7/7",
    "result": "PASS",
-   "detail": "命中=['破折号 ——', '无源权威 研究表明', '段头【】', '首先其次最后', '让我们 一起', '四字成语堆砌', '段尾升华 未来'] 漏=[] total=38 耗时=13.7s"
+   "detail": "命中=['破折号 ——', '无源权威 研究表明', '段头【】', '首先其次最后', '让我们 一起', '四字成语堆砌', '段尾升华 未来'] 漏=[] total=38 耗时=12.2s"
   },
   {
    "no": "V04",
@@ -38,25 +38,25 @@
    "no": "V06",
    "name": "批量匹配 <500ms 且无 model_error",
    "result": "PASS",
-   "detail": "47ms count=20 matched=20"
+   "detail": "56ms count=20 matched=20"
   },
   {
    "no": "V07",
    "name": "单条 angle <15s 且 8-60 字",
    "result": "PASS",
-   "detail": "6.3s len=14 angle=于正求原谅，解决才是简历亮点"
+   "detail": "6.1s len=20 angle=刘婧文首冠启示：简历需写成就，而非参与。"
   },
   {
    "no": "V08",
    "name": "空素材母题 own_detail 必须是空串",
    "result": "PASS",
-   "detail": "thesis 1 own_detail='' missing=['缺一手经历，请补一条亲历', '缺具体案例说明省钱如何限制机会', '缺数据支持大方投资带来的长期收益']"
+   "detail": "thesis 1 own_detail='' missing=['缺一手经历，请补一条亲历', '缺具体案例说明小钱大方如何创造机会', '缺数据支持省钱思维对穷人的负面影响']"
   },
   {
    "no": "V12",
    "name": "空素材时必须提示缺一手经历",
    "result": "PASS",
-   "detail": "missing=['缺一手经历，请补一条亲历', '缺具体案例说明省钱如何限制机会', '缺数据支持大方投资带来的长期收益']"
+   "detail": "missing=['缺一手经历，请补一条亲历', '缺具体案例说明小钱大方如何创造机会', '缺数据支持省钱思维对穷人的负面影响']"
   },
   {
    "no": "V09",

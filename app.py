@@ -5,16 +5,19 @@
   失败 {"ok": false, "error": "中文原因", "retryable": bool}
 """
 
+import csv
+import io
 import json
 import os
 import re
+import statistics
 import tempfile
 import threading
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 
-from fastapi import FastAPI, File, Query, UploadFile
+from fastapi import FastAPI, File, Query, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -2062,3 +2065,536 @@ async def api_replicate(files: list[UploadFile] = File(...)):
             ),
         }
     return ok(data)
+
+
+# ================================================================
+# 账号诊断（R-D01 ~ R-D04）
+#
+# 数据只来自用户手动导入的那一批，不与任何外部基准比较（我们没有别人的数据）。
+# 算不出来的指标一律 None，前端显示「—」，不填 0、不填示例值。
+# 互动率一律走 calc_rate()，这里不许再写一份 (like+share+comment)/read。
+# ================================================================
+
+# 表头同义写法：标准名 -> 用户后台可能导出的其他叫法
+DIAG_COLUMNS = {
+    "标题": ("标题", "title", "内容", "作品"),
+    "平台": ("平台", "platform", "渠道"),
+    "阅读": ("阅读", "阅读量", "播放", "曝光", "views"),
+    "发布时间": ("发布时间", "时间", "发布日期", "date"),
+    "点赞": ("点赞", "赞", "likes"),
+    "转发": ("转发", "分享", "分享数", "shares"),
+    "评论": ("评论", "评论数", "comments"),
+    "粉丝数": ("粉丝数", "粉丝", "fans"),
+}
+DIAG_REQUIRED = ("标题", "平台", "阅读")
+DIAG_WEEKDAYS = ("周一", "周二", "周三", "周四", "周五", "周六", "周日")
+DIAG_SUGGEST_MAX = 150
+DIAG_DATE_FORMATS = (
+    "%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d", "%Y年%m月%d日",
+    "%Y-%m-%d %H:%M", "%Y-%m-%d %H:%M:%S", "%Y/%m/%d %H:%M",
+)
+
+
+def _diag_header_key(raw) -> str:
+    """表头归一：去 BOM、去所有空白、转小写，容忍「阅读 量」「Views」。"""
+    return re.sub(r"\s+", "", str(raw or "")).replace("\ufeff", "").lower()
+
+
+def _diag_column_index(headers) -> dict:
+    """把表头行映射成 {标准列名: 列下标}，同名列只认第一列。"""
+    alias = {}
+    for canon, names in DIAG_COLUMNS.items():
+        for n in names:
+            alias[_diag_header_key(n)] = canon
+    idx = {}
+    for i, h in enumerate(headers):
+        canon = alias.get(_diag_header_key(h))
+        if canon and canon not in idx:
+            idx[canon] = i
+    return idx
+
+
+def _diag_int(raw):
+    """把「18,420」「 1200 」「1.0」这类单元格转成 int，转不动返回 None。"""
+    s = str(raw if raw is not None else "").strip()
+    for ch in (",", "，", " ", "\u00a0"):
+        s = s.replace(ch, "")
+    if not s:
+        return None
+    try:
+        return int(float(s))
+    except ValueError:
+        return None
+
+
+def _diag_date(raw):
+    """解析发布时间，返回 date；解析不了返回 None（该行不进周内走势）。"""
+    s = str(raw or "").strip().replace("T", " ")
+    if not s:
+        return None
+    for fmt in DIAG_DATE_FORMATS:
+        try:
+            return datetime.strptime(s, fmt).date()
+        except ValueError:
+            continue
+    try:
+        return datetime.fromisoformat(s).date()
+    except ValueError:
+        return None
+
+
+def _diag_decode(raw: bytes) -> str:
+    """CSV 解码：Excel 导出的中文 CSV 默认 GBK，先按 UTF-8 试，再按 GB18030（GBK 超集）。"""
+    for enc in ("utf-8-sig", "gb18030"):
+        try:
+            return raw.decode(enc)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("utf-8", errors="replace")
+
+
+def _diag_parse(text: str):
+    """解析 CSV / 粘贴的表格。
+
+    返回 (error, rows, skipped, columns)：
+      error    非空表示整批不可用（缺必需列 / 没内容），rows 为 None
+      rows     保留下来的行，每行带 title/platform/read/like/share/comment/fans/date
+      skipped  被丢掉的行数（缺标题或缺阅读）
+      columns  {标准列名: 是否存在}，前端用它告诉用户读到了哪几列
+    """
+    text = (text or "").replace("\r\n", "\n").replace("\r", "\n")
+    if not text.strip():
+        return "没有收到数据，请粘贴表格内容或上传 CSV", None, 0, {}
+
+    # 从 Excel 直接复制是 Tab 分隔，导出文件是逗号分隔，按表头里哪种多就用哪种
+    head = text.split("\n", 1)[0]
+    delim = "\t" if head.count("\t") > head.count(",") else ","
+    try:
+        grid = [r for r in csv.reader(io.StringIO(text), delimiter=delim) if any(str(c).strip() for c in r)]
+    except csv.Error as e:
+        return f"CSV 解析失败：{e}", None, 0, {}
+    if not grid:
+        return "没有收到数据，请粘贴表格内容或上传 CSV", None, 0, {}
+
+    headers = grid[0]
+    idx = _diag_column_index(headers)
+    columns = {c: (c in idx) for c in DIAG_COLUMNS}
+    missing = [c for c in DIAG_REQUIRED if c not in idx]
+    if missing:
+        got = "、".join(str(h).strip() for h in headers if str(h).strip()) or "（空表头）"
+        return f"缺少必需列：{'、'.join(missing)}；读到的表头是：{got}", None, 0, columns
+
+    rows = []
+    skipped = 0
+    for raw in grid[1:]:
+        def cell(name, _raw=raw):
+            i = idx.get(name)
+            if i is None or i >= len(_raw):
+                return ""
+            return str(_raw[i]).strip()
+
+        title = cell("标题")
+        read = _diag_int(cell("阅读"))
+        if not title or read is None:
+            skipped += 1
+            continue
+        d = _diag_date(cell("发布时间"))
+        rows.append({
+            "title": title,
+            "platform": cell("平台"),
+            "read": read,
+            "like": _diag_int(cell("点赞")) or 0,
+            "share": _diag_int(cell("转发")) or 0,
+            "comment": _diag_int(cell("评论")) or 0,
+            "fans": _diag_int(cell("粉丝数")),
+            "date": d.isoformat() if d else None,
+        })
+    return "", rows, skipped, columns
+
+
+def _diag_topic_score(title: str) -> int:
+    """选题力：标题里有没有「具体的谁」和「具体的事」。纯规则，不调模型。"""
+    t = str(title or "")
+    score = 0
+    if re.search(r"[0-9０-９]", t):
+        score += 25
+    if any(w in t for w in ("为什么", "怎么", "如何", "吗", "呢", "哪", "谁")):
+        score += 20
+    if any(w in t for w in ("我", "你", "普通人", "学生", "宝妈", "程序员", "上班族", "退休", "50岁")):
+        score += 25
+    n = len(t)
+    if 8 <= n <= 28:
+        score += 20
+    elif 8 <= n <= 40:
+        score += 10
+    if any(w in t for w in ("格局", "认知", "思维", "底层逻辑", "干货", "必看")):
+        score -= 15
+    return max(0, min(100, score))
+
+
+def _diag_quality(rows: list[dict]):
+    """内容质量四项子分。返回 (总分|None, 子分 dict, 阅读变异系数|None)。
+
+    某项算不出来（样本不足 / 全 0 阅读）就是 None，权重按剩下的项重新归一，
+    不拿 0 分顶上去——0 分会把「不知道」说成「很差」。
+    """
+    subs = {}
+    reads = [r["read"] for r in rows]
+    titles = [r["title"] for r in rows]
+
+    subs["选题力"] = round(sum(_diag_topic_score(t) for t in titles) / len(titles)) if titles else None
+
+    if len(reads) >= 3 and max(reads) > 0:
+        subs["标题力"] = round((max(reads) - min(reads)) / max(reads) * 100)
+    else:
+        subs["标题力"] = None
+
+    mean = sum(reads) / len(reads) if reads else 0.0
+    cv = None
+    if mean > 0:
+        subs["信息密度"] = round(min(100.0, statistics.median(reads) / mean * 100))
+        cv = statistics.pstdev(reads) / mean
+        subs["稳定性"] = round(max(0.0, 100 - cv * 100))
+    else:
+        subs["信息密度"] = None
+        subs["稳定性"] = None
+
+    weights = {"选题力": 0.3, "标题力": 0.3, "信息密度": 0.25, "稳定性": 0.15}
+    total_w = sum(w for k, w in weights.items() if subs.get(k) is not None)
+    if total_w <= 0:
+        return None, subs, cv
+    score = sum(subs[k] * w for k, w in weights.items() if subs.get(k) is not None) / total_w
+    return int(round(score)), subs, cv
+
+
+def _diag_bars(rows: list[dict]) -> list[dict]:
+    """一周走势：按发布时间的星期几聚合，取该星期几的阅读中位数（不用均值）。"""
+    buckets = {}
+    for r in rows:
+        if not r.get("date"):
+            continue
+        try:
+            d = datetime.strptime(r["date"], "%Y-%m-%d").date()
+        except ValueError:
+            continue
+        buckets.setdefault(d.weekday(), []).append(r["read"])
+    if not buckets:
+        return []
+
+    med = {wd: statistics.median(v) for wd, v in buckets.items()}
+    top = max(med.values())
+    bars = []
+    for wd in range(7):
+        if wd not in med:
+            bars.append({"l": DIAG_WEEKDAYS[wd], "v": 0, "empty": True})
+        else:
+            v = int(round(med[wd] / top * 96)) if top > 0 else 0
+            bars.append({"l": DIAG_WEEKDAYS[wd], "v": v})
+    if top > 0:
+        hot = max(range(7), key=lambda i: bars[i]["v"])
+        bars[hot]["hot"] = True
+    return bars
+
+
+def _diag_anomalies(rows: list[dict]):
+    """异常点：|rate - 中位数| > 3 × 1.4826 × MAD 的行。MAD 为 0 时一律不标。"""
+    pairs = []
+    for r in rows:
+        rate = calc_rate(r["read"], r["like"], r["share"], r["comment"])
+        if rate is not None:
+            pairs.append((r["title"], rate))
+    if len(pairs) < 3:
+        return [], None
+    rates = [p[1] for p in pairs]
+    med = statistics.median(rates)
+    mad = statistics.median([abs(x - med) for x in rates])
+    if mad <= 0:
+        return [], med
+    limit = 3 * 1.4826 * mad
+    hits = [
+        {"title": t, "rate": round(x, 6), "median": round(med, 6)}
+        for t, x in pairs
+        if abs(x - med) > limit
+    ]
+    hits.sort(key=lambda h: abs(h["rate"] - h["median"]), reverse=True)
+    return hits, med
+
+
+def _diag_suggestions(n, weeks, freq, rate, quality, subs, cv, anomalies) -> list[str]:
+    """规则建议器：纯 Python，必定有输出。最多 3 条，按影响面 × 可执行性排序。"""
+    cands = []  # (优先级, 文案)；异常点 > 互动率 > 更新频率 > 质量分 > 稳定性
+
+    if anomalies:
+        a = anomalies[0]
+        cands.append((1, (
+            f"《{a['title']}》的互动率 {a['rate'] * 100:.1f}%，是你这批数据里明显偏离的一条"
+            f"（中位数 {a['median'] * 100:.1f}%）。"
+        )))
+
+    if rate is not None:
+        p = rate * 100
+        if p < 1:
+            cands.append((2, (
+                f"互动率 {p:.1f}%，低于 1%。检查结尾有没有具体提问——"
+                "不是「你怎么看」，而是「你上次遇到这种情况是怎么处理的」。"
+            )))
+        elif p >= 5:
+            cands.append((2, (
+                f"互动率 {p:.1f}%，这个数字说明你的读者愿意动手。"
+                "把这批里互动率最高的那篇的结尾句式抠出来，当成模板固定。"
+            )))
+
+    if freq < 2:
+        cands.append((3, (
+            f"近 {weeks} 周只发了 {n} 篇，平均 {freq:.1f} 篇/周。"
+            "平台对更新频率的权重通常高于单篇质量，先做到每周 2 篇再谈优化。"
+        )))
+    elif freq > 7:
+        cands.append((3, (
+            f"{freq:.1f} 篇/周属于高频。这个节奏下质量通常会被稀释——"
+            "把这批里互动率最低的三篇找出来，看它们是不是赶工出来的。"
+        )))
+
+    if quality is not None:
+        if quality < 60:
+            scored = [(k, v) for k, v in subs.items() if v is not None]
+            worst = min(scored, key=lambda kv: kv[1])[0] if scored else "选题力"
+            cands.append((4, (
+                f"内容质量 {quality} 分，主要失分在{worst}。"
+                "这一项是可以靠模板化的方式改的，优先动它。"
+            )))
+        elif quality >= 85:
+            cands.append((4, (
+                f"内容质量 {quality} 分。这个水平下继续优化文字的收益已经很小，"
+                "把精力挪到分发——同样的内容换一个平台、换一个标题重发一次。"
+            )))
+
+    if cv is not None and cv > 1.5:
+        cands.append((5, (
+            f"阅读量忽高忽低（变异系数 {cv:.2f}）。这说明你的选题还没形成可复用的模式，"
+            "靠碰运气。先把跑赢的三篇放在一起找共同点。"
+        )))
+
+    cands.sort(key=lambda x: x[0])
+    out = [t if len(t) <= DIAG_SUGGEST_MAX else t[: DIAG_SUGGEST_MAX - 1] + "…" for _, t in cands[:3]]
+    if not out:
+        out = [f"这批 {n} 条数据没有明显异常。想看出问题，需要至少 10 条或跨两周的数据。"]
+    return out
+
+
+def _diag_compute(rows: list[dict]) -> dict:
+    """四项指标 + 一周走势 + 异常点 + 规则建议。只读导入的那批数据。"""
+    n = len(rows)
+
+    # 互动率：加权平均 = 总互动 / 总阅读，口径复用 calc_rate()
+    ok_rows = [r for r in rows if r["read"] > 0]
+    rate = calc_rate(
+        sum(r["read"] for r in ok_rows),
+        sum(r["like"] for r in ok_rows),
+        sum(r["share"] for r in ok_rows),
+        sum(r["comment"] for r in ok_rows),
+    )
+
+    # 覆盖周数：按发布时间跨度算，不足一周按一周
+    dates = sorted(r["date"] for r in rows if r.get("date"))
+    weeks = 1
+    if len(dates) >= 2:
+        try:
+            span = (datetime.strptime(dates[-1], "%Y-%m-%d").date()
+                    - datetime.strptime(dates[0], "%Y-%m-%d").date()).days
+            weeks = max(1, (span + 6) // 7)
+        except ValueError:
+            weeks = 1
+    freq = n / weeks
+
+    quality, subs, cv = _diag_quality(rows)
+
+    # 粉丝增长：数据里真有粉丝数才算，末值/首值 - 1
+    fans = [(r["date"] or "", r["fans"]) for r in rows if r.get("fans") is not None]
+    growth = None
+    if len(fans) >= 2:
+        if all(r.get("date") for r in rows if r.get("fans") is not None):
+            fans.sort(key=lambda x: x[0])
+        first, last = fans[0][1], fans[-1][1]
+        if first and first > 0:
+            growth = (last / first - 1) * 100
+
+    metrics = [
+        {
+            "label": "内容质量",
+            "value": "—" if quality is None else str(quality),
+            "unit": "分",
+            "pct": 0 if quality is None else int(quality),
+        },
+        {
+            "label": "粉丝增长",
+            "value": "—" if growth is None else f"{growth:.1f}",
+            "unit": "%",
+            "pct": 0 if growth is None else int(round(max(0.0, min(100.0, growth * 10)))),
+        },
+        {
+            # 没有一行有阅读时算不出互动率：给 None，不给 0
+            "label": "互动率",
+            "value": None if rate is None else f"{rate * 100:.1f}",
+            "unit": "%",
+            "pct": 0 if rate is None else int(round(min(100.0, rate * 100 * 20))),
+        },
+        {
+            "label": "更新频率",
+            "value": f"{freq:.1f}",
+            "unit": "篇/周",
+            "pct": int(round(min(100.0, freq * 15))),
+        },
+    ]
+
+    anomalies, _ = _diag_anomalies(rows)
+    return {
+        "metrics": metrics,
+        "bars": _diag_bars(rows),
+        "suggestions": _diag_suggestions(n, weeks, freq, rate, quality, subs, cv, anomalies),
+        "anomalies": anomalies,
+        "score": quality,
+        "weeks": weeks,
+    }
+
+
+def _diag_note(metrics, suggestions, n, weeks, anomalies):
+    """可选增强：配了 key 才调模型，失败一律返回 None，不影响整条链路。"""
+    if not config.ZHIPU_API_KEY:
+        return None
+    mtext = "；".join(
+        f"{m['label']} {m['value'] if m['value'] is not None else '—'}{m['unit']}" for m in metrics
+    )
+    stext = "；".join(f"{i + 1}. {s}" for i, s in enumerate(suggestions))
+    atext = f"{len(anomalies)} 条异常点" if anomalies else "无异常点"
+    try:
+        prompt = render_prompt("diagnose", {
+            "metrics": mtext,
+            "suggestions": stext,
+            "row_count": n,
+            "weeks": weeks,
+            "anomalies": atext,
+        })
+        data, _ = llm.chat_json([{"role": "user", "content": prompt}], temperature=0.3, timeout=30)
+    except Exception as e:
+        print(f"[diagnose] 一句话总评生成失败，按无评语返回：{type(e).__name__}: {e}")
+        return None
+    note = str(data.get("note") or "").strip()
+    if not note:
+        return None
+    # 红线：模型不许拿别人的数据做比较，出现这类说法整条评语丢掉
+    for bad in ("同类账号", "行业平均", "行业均值", "大盘", "基准值"):
+        if bad in note:
+            return None
+    return note
+
+
+class DiagnoseRunReq(BaseModel):
+    run_id: int
+
+
+@app.post("/api/diagnose/import")
+async def api_diagnose_import(request: Request):
+    """R-D01：粘贴（JSON）或上传（multipart）CSV，落一行 diagnose_runs 并返回 run_id。"""
+    ctype = (request.headers.get("content-type") or "").lower()
+    filename = ""
+    if "multipart/form-data" in ctype:
+        form = await request.form()
+        platform = str(form.get("platform") or "").strip() or "全部"
+        upload = form.get("file")
+        if upload is None:
+            return fail("没有收到文件，请重新选择 CSV", retryable=False)
+        filename = getattr(upload, "filename", "") or ""
+        text = _diag_decode(await upload.read())
+    else:
+        try:
+            body = await request.json()
+        except Exception:
+            return fail("请求体不是合法 JSON", retryable=False)
+        platform = str(body.get("platform") or "").strip() or "全部"
+        filename = str(body.get("filename") or "")
+        text = str(body.get("csv") or "")
+
+    if filename.lower().endswith((".xlsx", ".xls")):
+        return fail("Excel 文件暂不支持，请另存为 CSV 后再上传", retryable=False)
+
+    error, rows, skipped, columns = _diag_parse(text)
+    if error:
+        return fail(error, retryable=False)
+    if not rows:
+        return fail("没有可用数据行：每行都要有标题和阅读数", retryable=False)
+
+    payload = json.dumps({"rows": rows, "columns": columns, "skipped": skipped}, ensure_ascii=False)
+    run_id = db.execute(
+        "INSERT INTO diagnose_runs(ts, platform, row_count, score, payload, note) VALUES(?,?,?,?,?,?)",
+        (db.now_str(), platform, len(rows), None, payload, None),
+    )
+    return ok({
+        "run_id": run_id,
+        "row_count": len(rows),
+        "skipped": skipped,
+        "columns": columns,
+        "platform": platform,
+    })
+
+
+@app.post("/api/diagnose/run")
+def api_diagnose_run(req: DiagnoseRunReq):
+    """跑一次诊断：算指标 → 规则建议 → 可选模型总评 → 回写这一行。"""
+    row = db.query_one("SELECT * FROM diagnose_runs WHERE id = ?", (int(req.run_id),))
+    if not row:
+        return fail(f"没有这次导入记录：run_id={req.run_id}", retryable=False, status_code=404)
+    try:
+        payload = json.loads(row["payload"])
+    except Exception:
+        return fail("这次导入的数据已损坏，请重新导入", retryable=False)
+    rows = payload.get("rows") or []
+    if not rows:
+        return fail("这次导入没有可用数据行，请重新导入", retryable=False)
+
+    result = _diag_compute(rows)
+    note = _diag_note(result["metrics"], result["suggestions"], len(rows), result["weeks"], result["anomalies"])
+    payload.update(result)
+    payload["note"] = note
+    db.execute(
+        "UPDATE diagnose_runs SET score = ?, payload = ?, note = ? WHERE id = ?",
+        (result["score"], json.dumps(payload, ensure_ascii=False), note, int(req.run_id)),
+    )
+    return ok({
+        "metrics": result["metrics"],
+        "bars": result["bars"],
+        "suggestions": result["suggestions"],
+        "note": note,
+        "anomalies": result["anomalies"],
+        "score": result["score"],
+    })
+
+
+@app.get("/api/diagnose/runs")
+def api_diagnose_runs(limit: int = Query(10, ge=1, le=50)):
+    """历史记录列表（不含 payload，避免一次拉回全部原始行）。"""
+    rows = db.query(
+        "SELECT id, ts, platform, row_count, score FROM diagnose_runs ORDER BY id DESC LIMIT ?",
+        (int(limit),),
+    )
+    return ok({"count": len(rows), "items": rows})
+
+
+@app.get("/api/diagnose/runs/{run_id}")
+def api_diagnose_run_detail(run_id: int):
+    """回看某一次的完整结果：直接回落库的 payload，含原始行，能追到每一个数字。"""
+    row = db.query_one("SELECT * FROM diagnose_runs WHERE id = ?", (int(run_id),))
+    if not row:
+        return fail(f"没有这次诊断记录：id={run_id}", retryable=False, status_code=404)
+    try:
+        payload = json.loads(row["payload"])
+    except Exception:
+        payload = {}
+    payload.update({
+        "id": row["id"],
+        "ts": row["ts"],
+        "platform": row["platform"],
+        "row_count": row["row_count"],
+        "score": row["score"],
+    })
+    return ok(payload)
