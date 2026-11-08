@@ -9,7 +9,7 @@
   {
    "name": "GET /api/stats 可达",
    "result": "PASS",
-   "detail": "HTTP 200 {\"ok\": true, \"data\": {\"week_generated\": 5, \"hot_count\": 514, \"post_count\": 0, \"streak_days\": 1}}"
+   "detail": "HTTP 200 {\"ok\": true, \"data\": {\"week_generated\": 10, \"hot_count\": 513, \"post_count\": 0, \"streak_days\": 1}}"
   },
   {
    "name": "Python 解释器路径",
@@ -19,7 +19,7 @@
   {
    "name": "data/creator.db 存在且可读",
    "result": "PASS",
-   "detail": "D:\\aa\\creator-os\\data\\creator.db 5595136 bytes，11 张表"
+   "detail": "D:\\aa\\creator-os\\data\\creator.db 5812224 bytes，11 张表"
   }
  ],
  "exit_code": 0

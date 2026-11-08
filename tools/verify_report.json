@@ -3,7 +3,7 @@
     "code": "V01",
     "name": "服务存活 /api/stats",
     "ok": true,
-    "detail": "http 200 week_generated=6"
+    "detail": "http 200 week_generated=11"
   },
   {
     "code": "V02",
@@ -15,7 +15,7 @@
     "code": "V03",
     "name": "体检硬痕迹检出 7/7",
     "ok": true,
-    "detail": "命中=['破折号 ——', '无源权威 研究表明', '段头【】', '首先其次最后', '让我们 一起', '四字成语堆砌', '段尾升华 未来'] 漏=[] total=38 耗时=12.2s"
+    "detail": "命中=['破折号 ——', '无源权威 研究表明', '段头【】', '首先其次最后', '让我们 一起', '四字成语堆砌', '段尾升华 未来'] 漏=[] total=38 耗时=10.9s"
   },
   {
     "code": "V04",
@@ -33,25 +33,25 @@
     "code": "V06",
     "name": "批量匹配 <500ms 且无 model_error",
     "ok": true,
-    "detail": "56ms count=20 matched=20"
+    "detail": "67ms count=20 matched=20"
   },
   {
     "code": "V07",
     "name": "单条 angle <15s 且 8-60 字",
     "ok": true,
-    "detail": "6.1s len=20 angle=刘婧文首冠启示：简历需写成就，而非参与。"
+    "detail": "4.4s len=27 angle=杨瀚森两双背后，是解决问题的能力，而非参与比赛的记录。"
   },
   {
     "code": "V08",
     "name": "空素材母题 own_detail 必须是空串",
     "ok": true,
-    "detail": "thesis 1 own_detail='' missing=['缺一手经历，请补一条亲历', '缺具体案例说明小钱大方如何创造机会', '缺数据支持省钱思维对穷人的负面影响']"
+    "detail": "thesis 1 own_detail='' missing=['缺一手经历，请补一条亲历', '缺具体案例说明', '缺数据支持']"
   },
   {
     "code": "V12",
     "name": "空素材时必须提示缺一手经历",
     "ok": true,
-    "detail": "missing=['缺一手经历，请补一条亲历', '缺具体案例说明小钱大方如何创造机会', '缺数据支持省钱思维对穷人的负面影响']"
+    "detail": "missing=['缺一手经历，请补一条亲历', '缺具体案例说明', '缺数据支持']"
   },
   {
     "code": "V09",

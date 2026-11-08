@@ -1,32 +1,32 @@
-# 验收报告 2026-11-08 21:31
+# 验收报告 2026-11-08 21:45
 
 ## 总判定
 
-**FAIL**
+**PASS**
 
 ## 红线
 
 | 断言 | 结果 | 证据 |
 | --- | --- | --- |
-| 断言 1：空素材母题的 own_detail 必须是空字符串 | PASS | {"id": 54, "claim": "省钱是穷人的思维陷阱", "own_detail": "", "missing": ["缺一手经历，请补一条亲历", "缺具体案例说明小钱大方如何带来机会", "缺数据支持关于节省与机会成本的关系"]} |
-| 断言 2：missing 里必须包含「缺一手经历」 | PASS | missing=["缺一手经历，请补一条亲历", "缺具体案例说明小钱大方如何带来机会", "缺数据支持关于节省与机会成本的关系"] |
-| 断言 3：有素材母题的 own_detail 必须非空 | PASS | {"id": 55, "own_detail": "我改过 17 版简历，最后一版只剩一行项目描述，面试邀约反而变多"} |
+| 断言 1：空素材母题的 own_detail 必须是空字符串 | PASS | {"id": 62, "claim": "省小钱会错失大机会", "own_detail": "", "missing": ["缺一手经历，请补一条亲历", "缺具体案例说明省小钱如何错失大机会", "缺数据支持大方投入小钱能带来更大回报的观点"]} |
+| 断言 2：missing 里必须包含「缺一手经历」 | PASS | missing=["缺一手经历，请补一条亲历", "缺具体案例说明省小钱如何错失大机会", "缺数据支持大方投入小钱能带来更大回报的观点"] |
+| 断言 3：有素材母题的 own_detail 必须非空 | PASS | {"id": 63, "own_detail": "我改过 17 版简历，最后一版只剩一行项目描述，面试邀约反而变多"} |
 | 断言 4：own_detail 每句都能在 evidence 原文里逐字找到 | PASS | own_detail=我改过 17 版简历，最后一版只剩一行项目描述，面试邀约反而变多；素材=["我改过 17 版简历，最后一版只剩一行项目描述，面试邀约反而变多", "室友把社团经历写了八条，投三十家只回了两个"] |
-| 断言 5：派生结果不含第一人称经历组合词 | PASS | 全文 329 字，无命中；开头：越省钱越穷，你信吗？ 0-6s 越省钱越穷，你信吗？ 一个人盯着手机计算器，眉头紧锁 6-18s 那能让你多赚一百块。 一个人犹豫是否购买课程，最终放弃，表情懊悔 18-30s 机会就会主动找上你。 一个人参加付费培训，之后获得更好的工作机 |
+| 断言 5：派生结果不含第一人称经历组合词 | PASS | 全文 290 字，无命中；开头：省小钱会让你更穷 0-6s 省小钱会让你更穷 你盯着手机屏幕，皱着眉头 6-15s 错过了学习机会。 你看着手机上的课程，犹豫不决 15-24s 反而花更多钱。 你又掏出钱包，表情沮丧 24-33s 思维越来越窄。 你看着天花板，陷入沉思  |
 
 ## 功能验收
 
 | # | 项目 | 结果 | 证据 |
 | --- | --- | --- | --- |
-| V01 | 服务存活 /api/stats | PASS | http 200 week_generated=6 |
+| V01 | 服务存活 /api/stats | PASS | http 200 week_generated=11 |
 | V02 | GET /api/style | PASS | len=180 active=True |
-| V03 | 体检硬痕迹检出 7/7 | PASS | 命中=['破折号 ——', '无源权威 研究表明', '段头【】', '首先其次最后', '让我们 一起', '四字成语堆砌', '段尾升华 未来'] 漏=[] total=38 耗时=12.2s |
+| V03 | 体检硬痕迹检出 7/7 | PASS | 命中=['破折号 ——', '无源权威 研究表明', '段头【】', '首先其次最后', '让我们 一起', '四字成语堆砌', '段尾升华 未来'] 漏=[] total=38 耗时=10.9s |
 | V04 | 体检对 AI 味文本评分 < 60 | PASS | total=38 issues=12 |
 | V05 | 估时落在 裸算~裸算+35% | PASS | chars=272 裸算=60.4s 实际=73.0s |
-| V06 | 批量匹配 <500ms 且无 model_error | PASS | 56ms count=20 matched=20 |
-| V07 | 单条 angle <15s 且 8-60 字 | PASS | 6.1s len=20 angle=刘婧文首冠启示：简历需写成就，而非参与。 |
-| V08 | 空素材母题 own_detail 必须是空串 | PASS | thesis 1 own_detail='' missing=['缺一手经历，请补一条亲历', '缺具体案例说明小钱大方如何创造机会', '缺数据支持省钱思维对穷人的负面影响'] |
-| V12 | 空素材时必须提示缺一手经历 | PASS | missing=['缺一手经历，请补一条亲历', '缺具体案例说明小钱大方如何创造机会', '缺数据支持省钱思维对穷人的负面影响'] |
+| V06 | 批量匹配 <500ms 且无 model_error | PASS | 67ms count=20 matched=20 |
+| V07 | 单条 angle <15s 且 8-60 字 | PASS | 4.4s len=27 angle=杨瀚森两双背后，是解决问题的能力，而非参与比赛的记录。 |
+| V08 | 空素材母题 own_detail 必须是空串 | PASS | thesis 1 own_detail='' missing=['缺一手经历，请补一条亲历', '缺具体案例说明', '缺数据支持'] |
+| V12 | 空素材时必须提示缺一手经历 | PASS | missing=['缺一手经历，请补一条亲历', '缺具体案例说明', '缺数据支持'] |
 | V09 | 有素材母题 own_detail 逐字可回溯 | PASS | thesis 9 own='我改过 17 版简历，最后一版只剩一行项目描述，面试邀约反而' 在素材原文里=True |
 | V10 | 空素材派生文章不含编造经历 | PASS | 命中禁词=[] |
 | V11 | posts 表已清空 | PASS | posts=0 reviews=0 |
@@ -51,18 +51,15 @@
 | 2 | GET /api/market 基础结构与 starNum 降序 | PASS | HTTP 200 ok=True items=9 total=9 cats=6；每条含 url=True；starNum 序列=[52.3, 41.8, 38.6, 32.1, 28.4, 24.7, 21.9, 12.4, 9.8] 降序=True |
 | 3 | GET /api/market?q=自动化&cat=效率 过滤生效 | PASS | HTTP 200 返回 1 条，cat 列表=['效率']；全部为「效率」或空结果=True |
 | 4 | GET /api/books 8 条且无正文字段 | PASS | HTTP 200 items=8（期望 8）全部 enabled=true=True 每条含 url=True；url 实际值=['', '', '', '', '', '', '', '']；响应体正文字段命中=[]（期望 []） |
-| 5 | GET /api/points 结构与记录字段 | PASS | HTTP 200 balance=671（数值=True）delta=本周 -189 records=27 每条含 balance_after=True rules=3（非空=True）；record0={"ts": "2026-11-08 21:31:19", "reason": "生成内容 · derive", "delta": -10, "balance_after": 671} |
-| 6 | POST /api/points/adjust 前后对比 + sqlite 行数 | PASS | POST /api/points/adjust HTTP 200 ok=True；前 balance=671 records=27 sqlite行数=27 → 后 balance=670 records=28 sqlite行数=28；期望 balance-1 / records+1 / sqlite+1；data={"ts": "2026-11-08 21:31:19", "reason": "模 …（截断） |
+| 5 | GET /api/points 结构与记录字段 | PASS | HTTP 200 balance=549（数值=True）delta=本周 -311 records=41 每条含 balance_after=True rules=3（非空=True）；record0={"ts": "2026-11-08 21:45:02", "reason": "生成内容 · derive", "delta": -10, "balance_after": 549} |
+| 6 | POST /api/points/adjust 前后对比 + sqlite 行数 | PASS | POST /api/points/adjust HTTP 200 ok=True；前 balance=549 records=41 sqlite行数=41 → 后 balance=548 records=42 sqlite行数=42；期望 balance-1 / records+1 / sqlite+1；data={"ts": "2026-11-08 21:45:03", "reason": "模 …（截断） |
 | 7 | POST /api/replicate multipart 与无落库表 | PASS | POST /api/replicate（multipart 字段 files，1x1 PNG 70 字节）HTTP 200 ok=True；structure/layers/hooks/directions 非空=True file_count=1；note="结构报告为本地模板生成，未调用视觉模型；本次收到 1 个文件，各文件字节数：70 字节。"；sqlite 表=['topics', 'sq …（截断） |
-| 8 | index.html 无四模块 MOCK 表达式且 LATER_MODULES 解禁 | FAIL | 剥离注释后引用计数=0 命中=[]；MOCK 对象定义命中=0 命中=[]（定义命中=0 才 PASS）；LATER_MODULES 段=；残留 market/books/replicate 键=[]；diagnose 保留=False |
+| 8 | index.html 无四模块 MOCK 表达式且 LATER_MODULES 解禁 | PASS | 剥离注释后引用计数=0 命中=[]；MOCK 对象定义命中=0 命中=[]（定义命中=0 才 PASS）；LATER_MODULES 段=；残留已上线模块键（market/books/replicate/diagnose）=[] |
 | 9 | app.py 扣分挂载静态断言 | PASS | 扣分挂载为静态直读：app.py 中 db.points_change( 出现 7 次（≥6），POINT_COST 常量存在=True；运行时回归由全量 run_all.py 覆盖，不在本脚本内断言；运行时探测 key_configured=True |
 
 ## 发现的问题（按严重程度排序）
 
-1. 【严重】四模块仍在读 MOCK 硬编码，或 LATER_MODULES 未解禁
-   - 复现命令：`python tools/verify_modules.py`
-   - 期望：MOCK 五字段引用=0 且 MOCK 定义里五键=0；LATER_MODULES 不含 market/books/replicate
-   - 实际：剥离注释后引用计数=0 命中=[]；MOCK 对象定义命中=0 命中=[]（定义命中=0 才 PASS）；LATER_MODULES 段=；残留 market/books/replicate 键=[]；diagnose 保留=False
+本轮没有 FAIL 项。
 
 ## 无法验证的部分
 
@@ -82,4 +79,4 @@
 | 红线 | 0 | 通过 |
 | 功能 | 0 | 通过 |
 | 前端 | 0 | 通过 |
-| 模块验收 | 1 | 未通过 |
+| 模块验收 | 0 | 通过 |

@@ -15,3 +15,6 @@ service/hotnode/node_modules/
 .vscode/
 .idea/
 .DS_Store
+
+# 派单与临时验证产物
+_dispatch/

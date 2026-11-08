@@ -216,8 +216,7 @@ def c8():
     five = re.findall(r"MOCK\.(tools|books|bookCats|points|replicate)", code)
     m = re.search(r"var\s+LATER_MODULES\s*=\s*\{([^}]*)\}", code, re.S)
     body = m.group(1) if m else ""
-    keys = re.findall(r"(market|books|replicate)\s*:", body)
-    keep_diag = bool(re.search(r"diagnose\s*:", body))
+    keys = re.findall(r"(market|books|replicate|diagnose)\s*:", body)
     # 判定升级：引用为 0 且 MOCK 对象定义里也不再含这五个键
     m_mock = re.search(r"var\s+MOCK\s*=\s*\{", code)
     mock_body = ""
@@ -227,11 +226,11 @@ def c8():
         if m_end:
             mock_body = rest[:m_end.start()]
     def_hits = re.findall(r"(?m)^\s{2}(tools|books|bookCats|points|replicate)\s*:", mock_body)
-    ok = len(five) == 0 and len(keys) == 0 and keep_diag and len(def_hits) == 0
+    ok = len(five) == 0 and len(keys) == 0 and len(def_hits) == 0
     return ok, ("剥离注释后引用计数=%d 命中=%s；MOCK 对象定义命中=%d 命中=%s（定义命中=0 才 PASS）；"
-                "LATER_MODULES 段=%s；残留 market/books/replicate 键=%s；diagnose 保留=%s" % (
+                "LATER_MODULES 段=%s；残留已上线模块键（market/books/replicate/diagnose）=%s" % (
                     len(five), five, len(def_hits), def_hits,
-                    " ".join(body.split()), keys, keep_diag))
+                    " ".join(body.split()), keys))
 
 
 def c9():

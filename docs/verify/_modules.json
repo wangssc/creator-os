@@ -28,13 +28,13 @@
    "no": 5,
    "name": "GET /api/points 结构与记录字段",
    "result": "PASS",
-   "detail": "HTTP 200 balance=671（数值=True）delta=本周 -189 records=27 每条含 balance_after=True rules=3（非空=True）；record0={\"ts\": \"2026-11-08 21:31:19\", \"reason\": \"生成内容 · derive\", \"delta\": -10, \"balance_after\": 671}"
+   "detail": "HTTP 200 balance=549（数值=True）delta=本周 -311 records=41 每条含 balance_after=True rules=3（非空=True）；record0={\"ts\": \"2026-11-08 21:45:02\", \"reason\": \"生成内容 · derive\", \"delta\": -10, \"balance_after\": 549}"
   },
   {
    "no": 6,
    "name": "POST /api/points/adjust 前后对比 + sqlite 行数",
    "result": "PASS",
-   "detail": "POST /api/points/adjust HTTP 200 ok=True；前 balance=671 records=27 sqlite行数=27 → 后 balance=670 records=28 sqlite行数=28；期望 balance-1 / records+1 / sqlite+1；data={\"ts\": \"2026-11-08 21:31:19\", \"reason\": \"模块验收\", \"delta\": -1, \"balance_after\": 670}"
+   "detail": "POST /api/points/adjust HTTP 200 ok=True；前 balance=549 records=41 sqlite行数=41 → 后 balance=548 records=42 sqlite行数=42；期望 balance-1 / records+1 / sqlite+1；data={\"ts\": \"2026-11-08 21:45:03\", \"reason\": \"模块验收\", \"delta\": -1, \"balance_after\": 548}"
   },
   {
    "no": 7,
@@ -45,8 +45,8 @@
   {
    "no": 8,
    "name": "index.html 无四模块 MOCK 表达式且 LATER_MODULES 解禁",
-   "result": "FAIL",
-   "detail": "剥离注释后引用计数=0 命中=[]；MOCK 对象定义命中=0 命中=[]（定义命中=0 才 PASS）；LATER_MODULES 段=；残留 market/books/replicate 键=[]；diagnose 保留=False"
+   "result": "PASS",
+   "detail": "剥离注释后引用计数=0 命中=[]；MOCK 对象定义命中=0 命中=[]（定义命中=0 才 PASS）；LATER_MODULES 段=；残留已上线模块键（market/books/replicate/diagnose）=[]"
   },
   {
    "no": 9,
