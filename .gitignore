@@ -1,0 +1,17 @@
+# 密钥与本地产物不入库
+.env
+data/
+*.db
+*.db-journal
+
+# Python
+__pycache__/
+*.pyc
+
+# Node 旁路服务（service/hotnode）的依赖
+service/hotnode/node_modules/
+
+# 编辑器
+.vscode/
+.idea/
+.DS_Store

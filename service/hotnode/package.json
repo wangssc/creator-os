@@ -1,0 +1,21 @@
+{
+  "name": "creator-os-hotnode",
+  "private": true,
+  "version": "1.0.0",
+  "description": "creator-os 热点采集旁路服务：把 DailyHotApi 的 56 个平台收敛成 GET /hot/:platform",
+  "type": "module",
+  "scripts": {
+    "start": "tsx server.ts",
+    "dev": "tsx watch server.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.17.1",
+    "hono": "^4.8.9"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

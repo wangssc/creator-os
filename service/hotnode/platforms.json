@@ -1,0 +1,15 @@
+[
+  { "slug": "weibo",    "name": "微博",   "type": "热搜榜",   "note": "公域情绪最快，适合判断话题是否已经出圈" },
+  { "slug": "zhihu",    "name": "知乎",   "type": "热榜",     "note": "长文讨论，适合作观点对撞" },
+  { "slug": "baidu",    "name": "百度",   "type": "realtime", "note": "搜索热度，代表大众关心什么" },
+  { "slug": "toutiao",  "name": "头条",   "type": "热榜",     "note": "下沉与中年用户盘" },
+  { "slug": "bilibili", "name": "B站",    "type": "0",        "note": "年轻受众，视频选题参考" },
+  { "slug": "douyin",   "name": "抖音",   "type": "热点榜",   "note": "短视频选题参考" },
+  { "slug": "36kr",     "name": "36氪",   "type": "hot",      "note": "商业与融资，适合职场/创业选题" },
+  { "slug": "huxiu",    "name": "虎嗅",   "type": "热文",     "note": "商业评论，观点密度高" },
+  { "slug": "sspai",    "name": "少数派", "type": "热门文章", "note": "工具与方法论，适合生产力选题" },
+  { "slug": "juejin",   "name": "掘金",   "type": "1",        "note": "技术社区，AI 与开发选题" },
+  { "slug": "ithome",   "name": "IT之家", "type": "热榜",     "note": "数码与消费电子" },
+  { "slug": "thepaper", "name": "澎湃",   "type": "热榜",     "note": "时政社会，注意合规边界" },
+  { "slug": "v2ex",     "name": "V2EX",   "type": "hot",      "note": "互联网从业者吐槽与真实处境" }
+]

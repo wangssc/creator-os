@@ -1,0 +1,80 @@
+[
+  {
+    "code": "V01",
+    "name": "服务存活 /api/stats",
+    "ok": true,
+    "detail": "http 200 week_generated=2"
+  },
+  {
+    "code": "V02",
+    "name": "GET /api/style",
+    "ok": true,
+    "detail": "len=180 active=True"
+  },
+  {
+    "code": "V03",
+    "name": "体检硬痕迹检出 7/7",
+    "ok": true,
+    "detail": "命中=['破折号 ——', '无源权威 研究表明', '段头【】', '首先其次最后', '让我们 一起', '四字成语堆砌', '段尾升华 未来'] 漏=[] total=38 耗时=13.7s"
+  },
+  {
+    "code": "V04",
+    "name": "体检对 AI 味文本评分 < 60",
+    "ok": true,
+    "detail": "total=38 issues=12"
+  },
+  {
+    "code": "V05",
+    "name": "估时落在 裸算~裸算+35%",
+    "ok": true,
+    "detail": "chars=272 裸算=60.4s 实际=73.0s"
+  },
+  {
+    "code": "V06",
+    "name": "批量匹配 <500ms 且无 model_error",
+    "ok": true,
+    "detail": "47ms count=20 matched=20"
+  },
+  {
+    "code": "V07",
+    "name": "单条 angle <15s 且 8-60 字",
+    "ok": true,
+    "detail": "6.3s len=14 angle=于正求原谅，解决才是简历亮点"
+  },
+  {
+    "code": "V08",
+    "name": "空素材母题 own_detail 必须是空串",
+    "ok": true,
+    "detail": "thesis 1 own_detail='' missing=['缺一手经历，请补一条亲历', '缺具体案例说明省钱如何限制机会', '缺数据支持大方投资带来的长期收益']"
+  },
+  {
+    "code": "V12",
+    "name": "空素材时必须提示缺一手经历",
+    "ok": true,
+    "detail": "missing=['缺一手经历，请补一条亲历', '缺具体案例说明省钱如何限制机会', '缺数据支持大方投资带来的长期收益']"
+  },
+  {
+    "code": "V09",
+    "name": "有素材母题 own_detail 逐字可回溯",
+    "ok": true,
+    "detail": "thesis 9 own='我改过 17 版简历，最后一版只剩一行项目描述，面试邀约反而' 在素材原文里=True"
+  },
+  {
+    "code": "V10",
+    "name": "空素材派生文章不含编造经历",
+    "ok": true,
+    "detail": "命中禁词=[]"
+  },
+  {
+    "code": "V11",
+    "name": "posts 表已清空",
+    "ok": true,
+    "detail": "posts=0 reviews=0"
+  },
+  {
+    "code": "V13",
+    "name": "三个生成提示词都带反编造+具体性界线",
+    "ok": true,
+    "detail": "{'article.md': True, 'note.md': True, 'script.md': True}"
+  }
+]

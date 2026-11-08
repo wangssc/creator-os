@@ -1,0 +1,26 @@
+{
+ "stage": "preflight",
+ "items": [
+  {
+   "name": "8787 端口监听",
+   "result": "PASS",
+   "detail": "127.0.0.1:8787 LISTENING"
+  },
+  {
+   "name": "GET /api/stats 可达",
+   "result": "PASS",
+   "detail": "HTTP 200 {\"ok\": true, \"data\": {\"week_generated\": 0, \"hot_count\": 514, \"post_count\": 0, \"streak_days\": 1}}"
+  },
+  {
+   "name": "Python 解释器路径",
+   "result": "PASS",
+   "detail": "C:\\Users\\32719\\.workbuddy\\binaries\\python\\versions\\3.13.12\\python.exe"
+  },
+  {
+   "name": "data/creator.db 存在且可读",
+   "result": "PASS",
+   "detail": "D:\\aa\\creator-os\\data\\creator.db 5103616 bytes，10 张表"
+  }
+ ],
+ "exit_code": 0
+}

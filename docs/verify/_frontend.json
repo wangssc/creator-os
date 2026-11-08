@@ -1,0 +1,44 @@
+{
+ "stage": "frontend",
+ "rows": [
+  {
+   "no": 1,
+   "name": "index.html 存在 pageCard 函数",
+   "result": "PASS",
+   "detail": "剥离注释后匹配 1 处；index.html 150671 字符"
+  },
+  {
+   "no": 2,
+   "name": "MOCK_MODE 默认值为 false",
+   "result": "PASS",
+   "detail": "实际赋值=['false'] 代码中 MOCK_MODE = true 次数=0（注释里提到 MOCK_MODE = true，但不在代码中，不计为违规）"
+  },
+  {
+   "no": 3,
+   "name": "teleprompter.html 存在且含空格暂停逻辑",
+   "result": "PASS",
+   "detail": "10544 字符；空格监听=True 暂停逻辑=True"
+  },
+  {
+   "no": 4,
+   "name": "CSS 变量段（:root）存在且含 --green: 变量",
+   "result": "PASS",
+   "detail": "index.html 自身 :root 解析=True 声明数=17；精确命中 --green: 声明=['--green: #16A34A']（原备份对比无备份即 SKIP，已收敛为自身检查）"
+  },
+  {
+   "no": 5,
+   "name": "没有 .py 文件被前端改动过",
+   "result": "PASS",
+   "detail": "无 .py 与前端文件在 120 秒内同时修改（注意：时间线只能证否，不能证明作者）；后端：weibo.py@18:06:24；toutiao.py@18:06:36；zhihu.py@18:07:31；baidu.py@18:07:35；llm.py@18:08:38；__init__.py@21:42:57；rules.py@21:44:43；hotapi.py@21:48:53；db.py@19:30:41；app.py@19:38:43；config.py@19:55:52 ｜ 前端：index.html@20:30:00；teleprompter.html@20:49:52"
+  },
+  {
+   "no": 6,
+   "name": "四模块不再读 MOCK 硬编码",
+   "result": "PASS",
+   "detail": "剥离注释后引用计数=0 命中=[]；MOCK 对象定义命中=0 命中=[]（定义命中=0 才 PASS）；LATER_MODULES 残留 market/books/replicate 键=[]"
+  }
+ ],
+ "fail_count": 0,
+ "skip_count": 0,
+ "ok": true
+}

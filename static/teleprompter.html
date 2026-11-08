@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>提词器</title>
+<style>
+  /* 独立单页：不引用 index.html 的任何样式，全部自带 */
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+    background: #0B1220;
+    color: #E5E7EB;
+    font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* 顶栏：剩余字数 / 预计时长 / 速度档 */
+  #top {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 58px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 0 20px;
+    background: rgba(11, 18, 32, 0.92);
+    border-bottom: 1px solid #1F2937;
+    font-size: 13px;
+    color: #9CA3AF;
+    z-index: 10;
+    backdrop-filter: blur(6px);
+  }
+
+  #top .left { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  #stat { color: #E5E7EB; font-variant-numeric: tabular-nums; }
+  #speed { color: #6B7280; font-variant-numeric: tabular-nums; }
+
+  #top .right { display: flex; align-items: center; gap: 6px; flex: none; }
+
+  #top button {
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1;
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid #374151;
+    background: transparent;
+    color: #D1D5DB;
+    cursor: pointer;
+  }
+
+  #top button:hover { background: #1F2937; }
+
+  #top button.on {
+    background: #E5E7EB;
+    border-color: #E5E7EB;
+    color: #0B1220;
+    font-weight: 600;
+  }
+
+  /* 滚动区：上下留白让首句和末句都停在视线中间 */
+  #stage {
+    position: fixed;
+    top: 58px;
+    bottom: 46px;
+    left: 0;
+    right: 0;
+    overflow-y: auto;
+    padding: 40vh 9vw 70vh;
+    scrollbar-width: thin;
+    scrollbar-color: #374151 transparent;
+  }
+
+  #stage::-webkit-scrollbar { width: 8px; }
+  #stage::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+
+  #flow p {
+    font-size: clamp(40px, 5.2vw, 60px);
+    line-height: 1.85;
+    margin: 0 0 26px;
+    color: #8A93A3;
+    letter-spacing: 0.01em;
+    transition: color 0.18s ease;
+  }
+
+  /* 每段第一句上方多留一点，段落感用手上就看得出来 */
+  #flow p.para-first { margin-top: 46px; }
+
+  /* 当前句：亮白。读完的句子回到中性灰 */
+  #flow p.cur { color: #FFFFFF; }
+  #flow p.done { color: #6B7280; }
+
+  #bottom {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12.5px;
+    color: #6B7280;
+    background: #0B1220;
+    border-top: 1px solid #1F2937;
+    z-index: 10;
+  }
+
+  #bottom kbd {
+    font-family: inherit;
+    font-size: 12px;
+    padding: 2px 7px;
+    margin: 0 3px;
+    border: 1px solid #374151;
+    border-radius: 5px;
+    color: #D1D5DB;
+  }
+
+  #empty {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px;
+    font-size: 15px;
+    line-height: 1.9;
+    color: #9CA3AF;
+    z-index: 20;
+  }
+</style>
+</head>
+<body>
+
+<div id="top">
+  <div class="left">
+    <span id="stat">剩余 — 字 · 约 — 秒</span>
+    <span id="speed">中 · 270 字/分</span>
+  </div>
+  <div class="right">
+    <button type="button" data-mult="0.72">慢</button>
+    <button type="button" data-mult="1" class="on">中</button>
+    <button type="button" data-mult="1.35">快</button>
+    <button type="button" id="btnPlay">暂停</button>
+    <button type="button" id="btnFull">全屏</button>
+  </div>
+</div>
+
+<div id="stage"><div id="flow"></div></div>
+
+<div id="bottom">
+  <kbd>空格</kbd> 暂停 / 继续　·　<kbd>↑</kbd><kbd>↓</kbd> 调速　·　<kbd>F</kbd> 全屏
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------- 取文本 ---------------- */
+  function getParam(name) {
+    var m = new RegExp("[?&]" + name + "=([^&]*)").exec(location.search);
+    return m ? m[1] : "";
+  }
+
+  var raw = getParam("text");
+  var text = "";
+  if (raw) {
+    try {
+      text = decodeURIComponent(raw);
+    } catch (e) {
+      text = raw;
+    }
+  }
+  // 文本太长没走 URL 时，用 ?id= 从 sessionStorage 取
+  if (!text) {
+    var key = getParam("id");
+    if (key) {
+      try {
+        text = sessionStorage.getItem(decodeURIComponent(key)) || "";
+      } catch (e) {
+        text = "";
+      }
+    }
+  }
+
+  var stage = document.getElementById("stage");
+  var flow = document.getElementById("flow");
+  var statEl = document.getElementById("stat");
+  var speedEl = document.getElementById("speed");
+  var btnPlay = document.getElementById("btnPlay");
+  var btnFull = document.getElementById("btnFull");
+
+  if (!text || !text.trim()) {
+    var tip = document.createElement("div");
+    tip.id = "empty";
+    tip.innerHTML =
+      "没有拿到口播文本。<br />请从「观点卡详情 → 生成口播 → 提词器」进入，<br />或者用 ?text= 直接传一段文字。";
+    document.body.appendChild(tip);
+    return;
+  }
+
+  /* ---------------- 切句 ---------------- */
+  var BASE_WPM = 270;             // 与 /api/script/pacing 的默认值一致
+  var BASE_CPS = BASE_WPM / 60;   // 中文按「字」算：270 字/分 = 4.5 字/秒
+  var PARA_PAUSE = 800;           // 段落之间多停 0.8 秒
+  var SENT_PAUSE = 120;           // 句子之间小停
+
+  var paras = text
+    .replace(/\r\n/g, "\n")
+    .split(/\n+/)
+    .map(function (s) {
+      return s.trim();
+    })
+    .filter(Boolean);
+
+  var tokens = [];
+  paras.forEach(function (p) {
+    var sents = p.match(/[^。！？；!?;]+[。！？；!?;]?/g) || [p];
+    sents = sents
+      .map(function (s) {
+        return s.trim();
+      })
+      .filter(Boolean);
+    sents.forEach(function (s, i) {
+      tokens.push({ text: s, chars: s.replace(/\s/g, "").length, paraEnd: i === sents.length - 1, paraFirst: i === 0 });
+    });
+  });
+
+  var total = 0;
+  tokens.forEach(function (t) {
+    total += t.chars;
+    t.endChar = total;
+  });
+
+  /* ---------------- 渲染 ---------------- */
+  var els = [];
+  var frag = document.createDocumentFragment();
+  tokens.forEach(function (t, i) {
+    var p = document.createElement("p");
+    if (t.paraFirst) p.className = "para-first";
+    p.textContent = t.text;
+    frag.appendChild(p);
+    els.push(p);
+  });
+  flow.appendChild(frag);
+
+  /* ---------------- 状态 ---------------- */
+  var acc = 0;            // 已推进的字数（浮点）
+  var idx = 0;            // 当前句下标（从第一句开始就是当前句）
+  var playing = true;
+  var pauseLeft = 0;      // 剩余停顿毫秒
+  var mult = 1;           // 速度倍率
+  var last = 0;
+  var done = false;
+
+  function cps() {
+    return BASE_CPS * mult;
+  }
+
+  function fmtSec(s) {
+    s = Math.max(0, Math.round(s));
+    if (s < 60) return s + " 秒";
+    var m = Math.floor(s / 60);
+    var r = s % 60;
+    return m + " 分 " + (r ? r + " 秒" : "");
+  }
+
+  function scrollToCur() {
+    if (idx < 0 || idx >= els.length) return;
+    var el = els[idx];
+    var target = el.offsetTop - stage.clientHeight * 0.36;
+    stage.scrollTop = Math.max(0, target);
+  }
+
+  function paint() {
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i];
+      if (i === idx) el.className = (tokens[i].paraFirst ? "para-first " : "") + "cur";
+      else if (i < idx) el.className = (tokens[i].paraFirst ? "para-first " : "") + "done";
+      else el.className = tokens[i].paraFirst ? "para-first" : "";
+    }
+  }
+
+  function updateStat() {
+    var left = Math.max(0, total - Math.floor(acc));
+    var sec = cps() > 0 ? left / cps() : 0;
+    statEl.textContent = "剩余 " + left + " 字 · 约 " + fmtSec(sec);
+    speedEl.textContent =
+      (mult === 0.72 ? "慢" : mult === 1 ? "中" : mult === 1.35 ? "快" : "×" + mult.toFixed(1)) +
+      " · " +
+      Math.round(BASE_WPM * mult) +
+      " 字/分";
+  }
+
+  /* ---------------- 主循环 ---------------- */
+  function tick(ts) {
+    if (!last) last = ts;
+    var dt = Math.min(120, ts - last);
+    last = ts;
+
+    if (playing && !done) {
+      if (pauseLeft > 0) {
+        pauseLeft -= dt;
+      } else {
+        acc += (cps() * dt) / 1000;
+
+        // 越过某一句的结束点：切换当前句，并按位置给停顿
+        while (idx + 1 < tokens.length && acc >= tokens[idx + 1].endChar) {
+          idx++;
+          if (tokens[idx].paraEnd && idx < tokens.length - 1) pauseLeft = PARA_PAUSE;
+          else if (idx < tokens.length - 1) pauseLeft = SENT_PAUSE;
+          paint();
+          scrollToCur();
+        }
+
+        if (acc >= total) {
+          acc = total;
+          done = true;
+          playing = false;
+          btnPlay.textContent = "重播";
+          if (idx < tokens.length - 1) {
+            idx = tokens.length - 1;
+            paint();
+            scrollToCur();
+          }
+        }
+      }
+      updateStat();
+    }
+
+    requestAnimationFrame(tick);
+  }
+
+  /* ---------------- 交互 ---------------- */
+  function setPlaying(v) {
+    playing = v;
+    btnPlay.textContent = v ? "暂停" : done ? "重播" : "继续";
+  }
+
+  function restart() {
+    acc = 0;
+    idx = 0;
+    done = false;
+    pauseLeft = 0;
+    stage.scrollTop = 0;
+    paint();
+    updateStat();
+    setPlaying(true);
+  }
+
+  btnPlay.addEventListener("click", function () {
+    if (done) return restart();
+    setPlaying(!playing);
+  });
+
+  document.querySelectorAll("#top button[data-mult]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      mult = Number(b.dataset.mult) || 1;
+      document.querySelectorAll("#top button[data-mult]").forEach(function (x) {
+        x.classList.toggle("on", x === b);
+      });
+      updateStat(); // 实时切换：不重置进度
+    });
+  });
+
+  btnFull.addEventListener("click", toggleFull);
+
+  function toggleFull() {
+    if (!document.fullscreenElement) {
+      var p = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
+      if (p && p.catch) p.catch(function () {});
+    } else {
+      if (document.exitFullscreen) document.exitFullscreen();
+    }
+  }
+
+  document.addEventListener("keydown", function (e) {
+    var tag = (e.target && e.target.tagName) || "";
+
+    if (e.code === "Space" || e.key === " ") {
+      if (tag === "BUTTON" || tag === "INPUT" || tag === "TEXTAREA") return;
+      e.preventDefault();
+      if (done) return restart();
+      setPlaying(!playing);
+      return;
+    }
+
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      e.preventDefault();
+      var step = e.key === "ArrowUp" ? 0.1 : -0.1;
+      mult = Math.min(3, Math.max(0.3, Math.round((mult + step) * 100) / 100));
+      document.querySelectorAll("#top button[data-mult]").forEach(function (x) {
+        x.classList.remove("on");
+      });
+      updateStat();
+      return;
+    }
+
+    if (e.key === "f" || e.key === "F") {
+      e.preventDefault();
+      toggleFull();
+    }
+  });
+
+  /* ---------------- 启动 ---------------- */
+  paint();
+  updateStat();
+  setPlaying(true);
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

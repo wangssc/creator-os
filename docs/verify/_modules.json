@@ -1,0 +1,58 @@
+{
+ "items": [
+  {
+   "no": 1,
+   "name": "GET / 返回 200",
+   "result": "PASS",
+   "detail": "GET / -> HTTP 200（期望 200）；根路径返回 HTML，不断言 JSON"
+  },
+  {
+   "no": 2,
+   "name": "GET /api/market 基础结构与 starNum 降序",
+   "result": "PASS",
+   "detail": "HTTP 200 ok=True items=9 total=9 cats=6；每条含 url=True；starNum 序列=[52.3, 41.8, 38.6, 32.1, 28.4, 24.7, 21.9, 12.4, 9.8] 降序=True"
+  },
+  {
+   "no": 3,
+   "name": "GET /api/market?q=自动化&cat=效率 过滤生效",
+   "result": "PASS",
+   "detail": "HTTP 200 返回 1 条，cat 列表=['效率']；全部为「效率」或空结果=True"
+  },
+  {
+   "no": 4,
+   "name": "GET /api/books 8 条且无正文字段",
+   "result": "PASS",
+   "detail": "HTTP 200 items=8（期望 8）全部 enabled=true=True 每条含 url=True；url 实际值=['', '', '', '', '', '', '', '']；响应体正文字段命中=[]（期望 []）"
+  },
+  {
+   "no": 5,
+   "name": "GET /api/points 结构与记录字段",
+   "result": "PASS",
+   "detail": "HTTP 200 balance=793（数值=True）delta=本周 -67 records=13 每条含 balance_after=True rules=3（非空=True）；record0={\"ts\": \"2026-11-08 20:59:06\", \"reason\": \"生成内容 · derive\", \"delta\": -10, \"balance_after\": 793}"
+  },
+  {
+   "no": 6,
+   "name": "POST /api/points/adjust 前后对比 + sqlite 行数",
+   "result": "PASS",
+   "detail": "POST /api/points/adjust HTTP 200 ok=True；前 balance=793 records=13 sqlite行数=13 → 后 balance=792 records=14 sqlite行数=14；期望 balance-1 / records+1 / sqlite+1；data={\"ts\": \"2026-11-08 20:59:07\", \"reason\": \"模块验收\", \"delta\": -1, \"balance_after\": 792}"
+  },
+  {
+   "no": 7,
+   "name": "POST /api/replicate multipart 与无落库表",
+   "result": "PASS",
+   "detail": "POST /api/replicate（multipart 字段 files，1x1 PNG 70 字节）HTTP 200 ok=True；structure/layers/hooks/directions 非空=True file_count=1；note=\"结构报告为本地模板生成，未调用视觉模型；本次收到 1 个文件，各文件字节数：70 字节。\"；sqlite 表=['topics', 'sqlite_sequence', 'contents', 'posts', 'settings', 'reviews', 'templates', 'theses', 'thesis_cards', 'point_records']；replicate|upload|image 相关表=[]（期望 []）"
+  },
+  {
+   "no": 8,
+   "name": "index.html 无四模块 MOCK 表达式且 LATER_MODULES 解禁",
+   "result": "PASS",
+   "detail": "剥离注释后引用计数=0 命中=[]；MOCK 对象定义命中=0 命中=[]（定义命中=0 才 PASS）；LATER_MODULES 段=diagnose: \"账号诊断\"；残留 market/books/replicate 键=[]；diagnose 保留=True"
+  },
+  {
+   "no": 9,
+   "name": "app.py 扣分挂载静态断言",
+   "result": "PASS",
+   "detail": "扣分挂载为静态直读：app.py 中 db.points_change( 出现 7 次（≥6），POINT_COST 常量存在=True；运行时回归由全量 run_all.py 覆盖，不在本脚本内断言；运行时探测 key_configured=True"
+  }
+ ]
+}
